@@ -14,7 +14,11 @@ class Settings(BaseSettings):
     
     github_token: str
     github_webhook_secret: str
-    anthropic_api_key: str
+    
+    ai_provider: str = "gemini"  # Options: gemini, claude, github_models
+    gemini_api_key: str = ""  
+    anthropic_api_key: str = ""  
+    github_model_token: str = "" 
     log_level: str = "INFO"
 
 
