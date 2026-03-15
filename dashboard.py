@@ -147,7 +147,8 @@ def main():
                             created = datetime.fromisoformat(pr['created_at'].replace('Z', '+00:00'))
                             st.markdown(f"**Created:** {created.strftime('%Y-%m-%d')}")
                         
-                        st.markdown(f"**Description:** {pr.get('body', 'No description')[:200]}...")
+                        description = pr.get('body') or 'No description'
+                        st.markdown(f"**Description:** {description[:200]}...")
                         st.markdown(f"**URL:** [{pr['html_url']}]({pr['html_url']})")
                         
                         # Button to view files
