@@ -39,18 +39,21 @@ class GitHubService:
                 )
                 
                 if response.status_code >= 400:
-                    error_msg = f"GitHub API error: {response.status_code}"
-                    try:
-                        error_data = response.json()
-                        error_msg = f"{error_msg} - {error_data.get('message', 'Unknown error')}"
-                    except Exception:
-                        error_msg = f"{error_msg} - {response.text}"
+                    error_detail = await response.aread()
+                    error_text = error_detail.decode()
+                    logger.error(f"GitHub API request failed: {error_text}")
                     
-                    logger.error(f"GitHub API request failed: {error_msg}")
+                    # Try to parse error message
+                    try:
+                        import json
+                        error_json = json.loads(error_text)
+                        error_msg = error_json.get('message', response.reason_phrase)
+                        logger.error(f"GitHub error message: {error_msg}")
+                    except:
+                        error_msg = response.reason_phrase
+                    
                     raise GitHubServiceError(
-                        message=error_msg,
-                        status_code=response.status_code,
-                        response=response.json() if response.text else None
+                        f"GitHub API error: {response.status_code} - {error_msg}"
                     )
                 
                 return response.json()
@@ -174,6 +177,7 @@ class GitHubService:
             review_data["comments"] = comments
         
         try:
+            logger.debug(f"Review payload: {review_data}")
             response = await self._make_request(
                 method="POST",
                 endpoint=f"/repos/{owner}/{repo}/pulls/{pr_number}/reviews",
@@ -183,8 +187,64 @@ class GitHubService:
             logger.info(f"Successfully posted review (id={response.get('id')})")
             return response
         
-        except GitHubServiceError:
+        except GitHubServiceError as e:
+            logger.error("GitHub API rejected review. This commonly happens if:")
+            logger.error("  1. You're trying to review your own PR (GitHub doesn't allow this)")
+            logger.error("  2. Invalid line numbers in comments (lines not in diff)")
+            logger.error("  3. Duplicate review on same commit SHA")
+            logger.error(f"Review data: commit={commit_sha[:8]}, event={event}, comments={len(comments) if comments else 0}")
             raise
         except Exception as e:
             logger.error(f"Unexpected error posting review: {e}", exc_info=True)
             raise GitHubServiceError(f"Failed to post review: {e}")
+    
+    async def post_pr_comment(
+        self,
+        owner: str,
+        repo: str,
+        pr_number: int,
+        commit_sha: str,
+        path: str,
+        line: int,
+        body: str,
+        side: str = "RIGHT"
+    ) -> dict:
+        """Post an individual inline comment on a PR.
+        
+        This posts a single comment on a specific line, similar to how
+        developers comment during code review.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            pr_number: Pull request number
+            commit_sha: SHA of the commit
+            path: File path
+            line: Line number
+            body: Comment body
+            side: Which side of diff (RIGHT for new, LEFT for old)
+        
+        Returns:
+            Comment response from GitHub API
+        """
+        comment_data = {
+            "body": body,
+            "commit_id": commit_sha,
+            "path": path,
+            "line": line,
+            "side": side
+        }
+        
+        try:
+            response = await self._make_request(
+                method="POST",
+                endpoint=f"/repos/{owner}/{repo}/pulls/{pr_number}/comments",
+                json_data=comment_data
+            )
+            logger.debug(f"Posted comment on {path}:{line}")
+            return response
+        except GitHubServiceError:
+            raise
+        except Exception as e:
+            logger.error(f"Failed to post PR comment: {e}", exc_info=True)
+            raise GitHubServiceError(f"Failed to post PR comment: {e}")
