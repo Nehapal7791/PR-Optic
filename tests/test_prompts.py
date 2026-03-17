@@ -10,7 +10,7 @@ from src.prompts.senior_review import (
     build_initial_review_comment,
 )
 from src.models.github import PRFile
-from src.models.state import IssueItem
+from src.models.state import OpenIssue
 
 
 @pytest.fixture
@@ -47,26 +47,24 @@ def sample_files():
 @pytest.fixture
 def sample_issues():
     """Sample issues for testing."""
+    from src.models.review import Severity
     return [
-        IssueItem(
-            id="api.py:10:security",
+        OpenIssue(
+            issue_id="api.py:10:security",
             category="security",
-            file="src/api.py",
+            filename="src/api.py",
             line=10,
-            body="Hardcoded API key",
-            suggested_fix="Use environment variable",
-            resolved=False,
-            round_raised=1
+            severity=Severity.CRITICAL,
+            body="Security issue"
         ),
-        IssueItem(
-            id="config.py:5:hardcoded_values",
+        OpenIssue(
+            issue_id="config.py:5:hardcoded_values",
             category="hardcoded_values",
-            file="src/config.py",
+            filename="src/config.py",
             line=5,
+            severity=Severity.MAJOR,
             body="Hardcoded database URL",
-            suggested_fix="Use DATABASE_URL env var",
-            resolved=False,
-            round_raised=1
+            suggested_fix="Use DATABASE_URL env var"
         )
     ]
 

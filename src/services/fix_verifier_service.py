@@ -10,7 +10,7 @@ This is the core of the agent loop. It makes the bot a true agent:
 
 import json
 from collections import defaultdict
-from src.models.state import IssueItem, IssueVerification, VerificationResult
+from src.models.state import OpenIssue, IssueVerification, VerificationResult
 from src.models.review import ReviewScore
 from src.services.sqlite_state_service import SQLiteStateService
 from src.services.github_service import GitHubService
@@ -244,8 +244,8 @@ class FixVerifierService:
     
     def _group_issues_by_category(
         self,
-        issues: list[IssueItem]
-    ) -> dict[str, list[IssueItem]]:
+        issues: list[OpenIssue]
+    ) -> dict[str, list[OpenIssue]]:
         """Group issues by category for batch verification.
         
         Args:
@@ -262,7 +262,7 @@ class FixVerifierService:
     async def _verify_category_issues(
         self,
         category: str,
-        issues: list[IssueItem],
+        issues: list[OpenIssue],
         commit_diff: str,
         pr_id: str
     ) -> list[IssueVerification]:
@@ -321,7 +321,7 @@ class FixVerifierService:
     def _parse_verification_response(
         self,
         response: str,
-        issues: list[IssueItem]
+        issues: list[OpenIssue]
     ) -> list[IssueVerification]:
         """Parse Claude's verification response.
         
@@ -426,7 +426,7 @@ class FixVerifierService:
         pull_number: int,
         commit_sha: str,
         result: VerificationResult,
-        still_open_issues: list[IssueItem]
+        still_open_issues: list[OpenIssue]
     ) -> None:
         """Post verification review to GitHub.
         

@@ -9,8 +9,8 @@ import sqlite3
 from pathlib import Path
 from datetime import datetime
 from typing import Optional
-from src.models.state import PRReviewState, IssueItem, utcnow
-from src.models.review import ReviewScore
+from src.models.state import PRReviewState, OpenIssue, utcnow
+from src.models.review import ReviewScore, Severity
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -90,7 +90,7 @@ class SQLiteStateService:
     def save(
         self,
         pr_id: str,
-        issues: list[IssueItem],
+        issues: list[OpenIssue],
         commit_sha: str,
         score: ReviewScore = ReviewScore.COMMENT,
         summary: str = "",
@@ -147,15 +147,15 @@ class SQLiteStateService:
                      resolved, round_raised, created_at)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """, (
-                    issue.id,
+                    issue.issue_id,
                     pr_id,
                     issue.category,
-                    issue.file,
+                    issue.filename,
                     issue.line,
                     issue.body,
                     issue.suggested_fix,
-                    issue.resolved,
-                    issue.round_raised,
+                    False,  # New issues are not resolved
+                    round_num,
                     issue.created_at.isoformat()
                 ))
             
@@ -196,49 +196,39 @@ class SQLiteStateService:
             
             issue_rows = cursor.fetchall()
             
-            # Build issue lists
-            all_issues = []
+            # Build list of unresolved issues
             open_issues_new = []
-            resolved_issues = []
             
             for issue_row in issue_rows:
-                issue = IssueItem(
-                    id=issue_row["id"],
+                issue = OpenIssue(
+                    issue_id=issue_row["id"],
                     category=issue_row["category"],
-                    file=issue_row["file"],
+                    filename=issue_row["file"],
                     line=issue_row["line"],
                     body=issue_row["body"],
                     suggested_fix=issue_row["suggested_fix"],
-                    resolved=bool(issue_row["resolved"]),
-                    round_raised=issue_row["round_raised"],
+                    severity=Severity.MAJOR,  # Default, actual severity should be stored in DB
                     created_at=datetime.fromisoformat(issue_row["created_at"])
                 )
                 
-                all_issues.append(issue)
-                
-                if issue.resolved:
-                    resolved_issues.append(issue)
-                else:
+                # Check resolved status from DB row, not from OpenIssue (which doesn't have this field)
+                if not bool(issue_row["resolved"]):
                     open_issues_new.append(issue)
             
-            # Build PRReviewState
+            # Build PRReviewState - only include unresolved issues in open_issues
             state = PRReviewState(
                 pr_id=row["pr_id"],
                 last_reviewed_commit=row["last_reviewed_commit"],
-                open_issues=[],  # Backward compatibility - empty
-                resolved_issues=resolved_issues,
-                all_issues=all_issues,
-                round=row["round"],
+                open_issues=open_issues_new,
                 last_review_score=ReviewScore(row["last_review_score"]),
                 last_review_summary=row["last_review_summary"],
-                verdict=ReviewScore(row["verdict"]) if row["verdict"] else None,
                 created_at=datetime.fromisoformat(row["created_at"]),
                 updated_at=datetime.fromisoformat(row["updated_at"])
             )
             
             logger.info(
                 f"Loaded state for PR {pr_id}: "
-                f"{len(open_issues_new)} open, {len(resolved_issues)} resolved, round {state.round}"
+                f"{len(open_issues_new)} open issues"
             )
             
             return state

@@ -8,7 +8,7 @@ from src.services.fix_verifier_service import FixVerifierService
 from src.services.sqlite_state_service import SQLiteStateService
 from src.services.github_service import GitHubService
 from src.services.providers.claude_provider import ClaudeProvider
-from src.models.state import IssueItem, VerificationResult
+from src.models.state import OpenIssue, VerificationResult
 from src.models.review import ReviewScore
 
 
@@ -59,35 +59,31 @@ def verifier_service(state_service, mock_github_service, mock_claude_provider):
 @pytest.fixture
 def sample_issues():
     """Sample issues for testing."""
+    from src.models.review import Severity
     return [
-        IssueItem(
-            id="app.py:10:security",
+        OpenIssue(
+            issue_id="app.py:10:security",
             category="security",
-            file="app.py",
+            filename="app.py",
             line=10,
-            body="SQL injection vulnerability",
-            suggested_fix="Use parameterized queries",
-            resolved=False,
-            round_raised=1
+            severity=Severity.CRITICAL,
+            body="Security issue"
         ),
-        IssueItem(
-            id="app.py:20:maintainability",
+        OpenIssue(
+            issue_id="app.py:20:maintainability",
             category="maintainability",
-            file="app.py",
+            filename="app.py",
             line=20,
-            body="Complex function needs refactoring",
-            resolved=False,
-            round_raised=1
+            severity=Severity.MAJOR,
+            body="Maintainability issue"
         ),
-        IssueItem(
-            id="config.py:5:hardcoded_values",
+        OpenIssue(
+            issue_id="config.py:5:hardcoded_values",
             category="hardcoded_values",
-            file="config.py",
+            filename="config.py",
             line=5,
-            body="API key hardcoded",
-            suggested_fix="Use environment variable",
-            resolved=False,
-            round_raised=1
+            severity=Severity.MAJOR,
+            body="Hardcoded value"
         )
     ]
 
@@ -346,10 +342,11 @@ class TestGroupingByCategory:
         pr_id = "test/repo/1"
         
         # Create issues with multiple categories
+        from src.models.review import Severity
         issues = [
-            IssueItem(id="a.py:1:security", category="security", file="a.py", line=1, body="Issue 1", round_raised=1),
-            IssueItem(id="b.py:2:security", category="security", file="b.py", line=2, body="Issue 2", round_raised=1),
-            IssueItem(id="c.py:3:maintainability", category="maintainability", file="c.py", line=3, body="Issue 3", round_raised=1),
+            OpenIssue(issue_id="a.py:1:security", category="security", filename="a.py", line=1, severity=Severity.CRITICAL, body="Issue 1"),
+            OpenIssue(issue_id="b.py:2:security", category="security", filename="b.py", line=2, severity=Severity.CRITICAL, body="Issue 2"),
+            OpenIssue(issue_id="c.py:3:maintainability", category="maintainability", filename="c.py", line=3, severity=Severity.MAJOR, body="Issue 3"),
         ]
         
         state_service.save(

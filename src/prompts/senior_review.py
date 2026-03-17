@@ -13,7 +13,7 @@ Principles:
 
 from typing import List
 from src.models.github import PRFile
-from src.models.state import IssueItem
+from src.models.state import OpenIssue
 
 
 # ============================================================================
@@ -269,7 +269,7 @@ Return JSON:
     }
 
 def build_verification_prompt(
-    issues: List[IssueItem],
+    issues: List[OpenIssue],
     new_diff: str,
     category: str
 ) -> dict:
@@ -354,7 +354,7 @@ Return one verification per issue."""
 # ============================================================================
 
 def build_approval_comment(
-    fixed_issues: List[IssueItem],
+    fixed_issues: List[OpenIssue],
     verifications: list
 ) -> str:
     """Build approval comment template.
@@ -407,7 +407,7 @@ Great work! The code looks good and is ready to merge.
 
 
 def build_rejection_comment(
-    still_open_issues: List[IssueItem],
+    still_open_issues: List[OpenIssue],
     fixed_count: int,
     verifications: list
 ) -> str:

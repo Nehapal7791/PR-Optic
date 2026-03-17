@@ -15,11 +15,23 @@ class Settings(BaseSettings):
     github_token: str
     github_webhook_secret: str
     
+    allowed_repos: str = ""
+    
     ai_provider: str = "gemini"  # Options: gemini, claude, github_models
     gemini_api_key: str = ""  
     anthropic_api_key: str = ""  
     github_model_token: str = "" 
     log_level: str = "INFO"
+    
+    def get_allowed_repos(self) -> set[str]:
+        """Parse allowed repos into a set for fast lookup.
+        
+        Returns:
+            Set of allowed repo full names (owner/repo), or empty set if all allowed
+        """
+        if not self.allowed_repos:
+            return set()
+        return {repo.strip() for repo in self.allowed_repos.split(",") if repo.strip()}
 
 
 @lru_cache()
