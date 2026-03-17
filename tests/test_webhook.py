@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi.testclient import TestClient
 from src.api.routes.webhook import router, WebhookRouter
 from src.services.webhook_security import verify_github_signature, WebhookSecurityError
+from src.config import Settings
 from src.models.state import PRReviewState, OpenIssue
 from src.models.review import ReviewScore, Severity
 
@@ -259,7 +260,10 @@ class TestWebhookEndpoint:
         payload_bytes = json.dumps(sample_pr_opened_payload).encode('utf-8')
         signature = compute_signature(payload_bytes, webhook_secret)
         
-        with patch('src.api.routes.webhook.verify_github_signature') as mock_verify:
+        with (
+            patch('src.api.routes.webhook.verify_github_signature') as mock_verify,
+            patch.object(Settings, 'get_allowed_repos', return_value=set()),
+        ):
             mock_verify.return_value = True
             
             response = client.post(
@@ -283,7 +287,10 @@ class TestWebhookEndpoint:
         payload = {"test": "data"}
         payload_bytes = json.dumps(payload).encode('utf-8')
         
-        with patch('src.api.routes.webhook.verify_github_signature') as mock_verify:
+        with (
+            patch('src.api.routes.webhook.verify_github_signature') as mock_verify,
+            patch.object(Settings, 'get_allowed_repos', return_value=set()),
+        ):
             mock_verify.side_effect = WebhookSecurityError("Invalid signature")
             
             response = client.post(
@@ -304,7 +311,10 @@ class TestWebhookEndpoint:
         payload = {"test": "data"}
         payload_bytes = json.dumps(payload).encode('utf-8')
         
-        with patch('src.api.routes.webhook.verify_github_signature') as mock_verify:
+        with (
+            patch('src.api.routes.webhook.verify_github_signature') as mock_verify,
+            patch.object(Settings, 'get_allowed_repos', return_value=set()),
+        ):
             mock_verify.side_effect = WebhookSecurityError("Missing signature")
             
             response = client.post(
@@ -320,7 +330,10 @@ class TestWebhookEndpoint:
         malformed_payload = b"not valid json {"
         signature = compute_signature(malformed_payload, webhook_secret)
         
-        with patch('src.api.routes.webhook.verify_github_signature') as mock_verify:
+        with (
+            patch('src.api.routes.webhook.verify_github_signature') as mock_verify,
+            patch.object(Settings, 'get_allowed_repos', return_value=set()),
+        ):
             mock_verify.return_value = True
             
             response = client.post(
@@ -341,7 +354,10 @@ class TestWebhookEndpoint:
         payload_bytes = json.dumps(sample_ping_payload).encode('utf-8')
         signature = compute_signature(payload_bytes, webhook_secret)
         
-        with patch('src.api.routes.webhook.verify_github_signature') as mock_verify:
+        with (
+            patch('src.api.routes.webhook.verify_github_signature') as mock_verify,
+            patch.object(Settings, 'get_allowed_repos', return_value=set()),
+        ):
             mock_verify.return_value = True
             
             response = client.post(

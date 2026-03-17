@@ -5,8 +5,8 @@ import tempfile
 from pathlib import Path
 from datetime import datetime
 from src.services.sqlite_state_service import SQLiteStateService
-from src.models.state import IssueItem, PRReviewState
-from src.models.review import ReviewScore
+from src.models.state import OpenIssue, PRReviewState
+from src.models.review import ReviewScore, Severity
 
 
 @pytest.fixture
@@ -31,34 +31,30 @@ def state_service(temp_db):
 def sample_issues():
     """Sample issues for testing."""
     return [
-        IssueItem(
-            id="file.py:10:security",
+        OpenIssue(
+            issue_id="file.py:10:security",
             category="security",
-            file="file.py",
+            filename="file.py",
             line=10,
-            body="SQL injection vulnerability",
-            suggested_fix="Use parameterized queries",
-            resolved=False,
-            round_raised=1
+            severity=Severity.CRITICAL,
+            body="Security issue",
+            suggested_fix="Fix it"
         ),
-        IssueItem(
-            id="file.py:20:maintainability",
+        OpenIssue(
+            issue_id="file.py:20:maintainability",
             category="maintainability",
-            file="file.py",
+            filename="file.py",
             line=20,
-            body="Complex function needs refactoring",
-            resolved=False,
-            round_raised=1
+            severity=Severity.MAJOR,
+            body="Maintainability issue"
         ),
-        IssueItem(
-            id="app.py:5:hardcoded_values",
+        OpenIssue(
+            issue_id="app.py:5:hardcoded_values",
             category="hardcoded_values",
-            file="app.py",
+            filename="app.py",
             line=5,
-            body="API key hardcoded",
-            suggested_fix="Use environment variable",
-            resolved=False,
-            round_raised=1
+            severity=Severity.MAJOR,
+            body="Hardcoded value"
         )
     ]
 
@@ -330,28 +326,26 @@ class TestPersistence:
         assert db_path.stat().st_size > 0
 
 
-class TestIssueItemModel:
-    """Test IssueItem model structure."""
+class TestOpenIssueModel:
+    """Test OpenIssue model structure."""
     
-    def test_issue_item_has_required_fields(self):
-        """Test IssueItem model has all required fields."""
-        issue = IssueItem(
-            id="file.py:10:security",
+    def test_open_issue_has_required_fields(self):
+        """Test OpenIssue model has all required fields."""
+        issue = OpenIssue(
+            issue_id="file.py:10:security",
             category="security",
-            file="file.py",
+            filename="file.py",
             line=10,
-            body="Test issue",
-            resolved=False,
-            round_raised=1
+            severity=Severity.CRITICAL,
+            body="Test issue"
         )
         
-        assert issue.id == "file.py:10:security"
+        assert issue.issue_id == "file.py:10:security"
         assert issue.category == "security"
-        assert issue.file == "file.py"
+        assert issue.filename == "file.py"
         assert issue.line == 10
+        assert issue.severity == Severity.CRITICAL
         assert issue.body == "Test issue"
-        assert issue.resolved is False
-        assert issue.round_raised == 1
         assert isinstance(issue.created_at, datetime)
 
 
