@@ -4,10 +4,15 @@ from fastapi import APIRouter, Request, HTTPException, BackgroundTasks
 from src.services.webhook_security import verify_github_signature, WebhookSecurityError
 from src.services.review_orchestrator import ReviewOrchestrator
 from src.services.state_service import StateService
+from src.config import settings
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["webhook"])
+
+# In-memory idempotency cache (delivery IDs processed in last 24h)
+# For production, use Redis or persistent storage
+_processed_deliveries: set[str] = set()
 
 
 class WebhookRouter:
@@ -151,10 +156,20 @@ async def handle_webhook(
         200: Webhook received and queued for processing
         401: Invalid or missing signature
         400: Malformed payload
+        403: Repository not in allowlist
     """
-    # Get signature header
+    # Get headers
     signature = request.headers.get("X-Hub-Signature-256")
     event_type = request.headers.get("X-GitHub-Event", "unknown")
+    delivery_id = request.headers.get("X-GitHub-Delivery")
+     
+    if delivery_id and delivery_id in _processed_deliveries:
+        logger.info(f"⏭️  Skipping duplicate delivery: {delivery_id}")
+        return {
+            "status": "skipped",
+            "reason": "duplicate_delivery",
+            "delivery_id": delivery_id
+        }
     
     # Read raw body for signature verification
     try:
@@ -177,8 +192,36 @@ async def handle_webhook(
         logger.error(f"Failed to parse JSON payload: {e}")
         raise HTTPException(status_code=400, detail="Invalid JSON payload")
     
+    # Validate repo allowlist (if configured)
+    allowed_repos = settings.get_allowed_repos()
+    if allowed_repos and event_type == "pull_request":
+        repository = payload.get("repository") or {}
+        repo_full_name = repository.get("full_name") or ""
+ 
+        if not repo_full_name:
+            owner = (repository.get("owner") or {}).get("login")
+            name = repository.get("name")
+            if owner and name:
+                repo_full_name = f"{owner}/{name}"
+ 
+        if not repo_full_name or repo_full_name not in allowed_repos:
+            logger.warning(f"🚫 Repository not in allowlist: {repo_full_name}")
+            raise HTTPException(
+                status_code=403,
+                detail=f"Repository {repo_full_name} is not authorized for reviews"
+            )
+ 
+        logger.info(f"✅ Repository authorized: {repo_full_name}")
+    
     # Log webhook receipt
-    logger.info(f"✅ Webhook verified: {event_type}")
+    logger.info(f"✅ Webhook verified: {event_type} | Delivery: {delivery_id}")
+    
+    # Mark delivery as processed
+    if delivery_id:
+        _processed_deliveries.add(delivery_id)
+        # Limit cache size (keep last 1000 deliveries)
+        if len(_processed_deliveries) > 1000:
+            _processed_deliveries.pop()
     
     # Queue background processing
     background_tasks.add_task(process_webhook_background, event_type, payload)
@@ -187,5 +230,6 @@ async def handle_webhook(
     return {
         "status": "received",
         "event": event_type,
+        "delivery_id": delivery_id,
         "message": "Webhook queued for processing"
     }

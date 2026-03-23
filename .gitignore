@@ -1,6 +1,7 @@
 /docs
 .env
-
+testing_scripts/
+.pr_review_state/
 .venv/
 __pycache__/
 .pytest_cache/

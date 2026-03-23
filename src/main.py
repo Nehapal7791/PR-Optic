@@ -14,14 +14,14 @@ add_error_handlers(app)
 app.include_router(health.router)
 app.include_router(github.router, prefix="/api")
 app.include_router(reviews.router, prefix="/api")
-app.include_router(webhook.router)
+app.include_router(webhook.router, prefix="/api")
 
 logger.info("All routes registered successfully")
 
 
 @app.on_event("startup")
 async def startup_event():
-    logger.info("🚀 PR-Optic application started")
+    logger.info(" PR-Optic application started")
 
 
 @app.on_event("shutdown")
